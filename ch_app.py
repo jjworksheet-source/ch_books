@@ -115,7 +115,6 @@ elif step == "2. 匯入做卷老師資料":
     if df_valid is None:
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
-        # 老師分配清單（全部用 _1小時，無空格）
         cb_list = [
             "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_"
         ]
@@ -128,6 +127,7 @@ elif step == "2. 匯入做卷老師資料":
 
         grade_col = [col for col in df_valid.columns if "年級" in str(col)][0]
         school_col = [col for col in df_valid.columns if "學校" in str(col)][0]
+        class_col = [col for col in df_valid.columns if "班別" in str(col)][0]
         time_col = [col for col in df_valid.columns if "時間" in str(col)][0]
 
         # 自動萃取學校簡稱
@@ -152,9 +152,10 @@ elif step == "2. 匯入做卷老師資料":
 
         df_valid['學校簡稱'] = df_valid[school_col].apply(extract_short)
 
+        # 用班別欄位判斷 1小時
         def get_grade卷(row):
             base = f"{str(row[grade_col]).strip()}{str(row['學校簡稱']).strip()}_"
-            if "1小時" in str(row[time_col]):
+            if "1小時" in str(row[class_col]):
                 return f"{base}1小時"
             else:
                 return base
