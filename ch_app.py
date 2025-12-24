@@ -18,6 +18,10 @@ step = st.sidebar.radio(
     ]
 )
 
+# 用於全局暫存有效資料
+if 'valid_data' not in st.session_state:
+    st.session_state['valid_data'] = None
+
 if step == "1. 做卷有效資料":
     st.header("上傳報表 (JJCustomer Report)")
     uploaded_file = st.file_uploader("請上傳 JJCustomer 報表 (xls/xlsx)", type=["xls", "xlsx"])
@@ -102,36 +106,80 @@ if step == "1. 做卷有效資料":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
+        # Save valid_data to session_state for step 2
+        st.session_state['valid_data'] = df_valid
+
 elif step == "2. 匯入做卷老師資料":
-    st.header("匯入做卷老師資料")
-    uploaded_teacher_file = st.file_uploader(
-        "請上傳做卷老師分配表 (Excel/CSV/圖片)", 
-        type=["xls", "xlsx", "csv", "png", "jpg", "jpeg"]
-    )
-    if uploaded_teacher_file:
-        file_type = uploaded_teacher_file.type
-        if "excel" in file_type or uploaded_teacher_file.name.endswith((".xls", ".xlsx")):
-            try:
-                df_teacher = pd.read_excel(uploaded_teacher_file, dtype=str)
-                st.success("Excel 檔案已上傳！")
-                st.subheader("做卷老師分配表 預覽")
-                st.dataframe(df_teacher)
-            except Exception as e:
-                st.error(f"讀取 Excel 檔案時發生錯誤: {e}")
-        elif "csv" in file_type or uploaded_teacher_file.name.endswith(".csv"):
-            try:
-                df_teacher = pd.read_csv(uploaded_teacher_file, dtype=str)
-                st.success("CSV 檔案已上傳！")
-                st.subheader("做卷老師分配表 預覽")
-                st.dataframe(df_teacher)
-            except Exception as e:
-                st.error(f"讀取 CSV 檔案時發生錯誤: {e}")
-        elif any(uploaded_teacher_file.name.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg"]):
-            st.success("圖片檔案已上傳！")
-            st.subheader("做卷老師分配表 圖片預覽")
-            st.image(uploaded_teacher_file)
-        else:
-            st.warning("不支援的檔案格式，請上傳 Excel、CSV 或圖片檔案。")
+    st.header("自動統計出卷老師份數")
+    df_valid = st.session_state.get('valid_data', None)
+    if df_valid is None:
+        st.warning("請先在步驟一上傳並產生有效資料。")
+    else:
+        # 年級+卷對應老師規則
+        cb_list = [
+            "P1女拔_", "P1男拔_", "P1男拔_ 1小時", "P5女拔_", "P5男拔_", "P5男拔_ 1小時", "P6女拔_", "P6男拔_"
+        ]
+        kt_list = [
+            "P1保羅_", "P1喇沙_", "P2保羅_", "P2喇沙_", "P3保羅_", "P3喇沙_", "P4保羅_", "P4喇沙_", "P5保羅_", "P5喇沙_", "P6喇沙_"
+        ]
+        mc_list = [
+            "P2女拔_", "P2男拔_", "P2男拔_ 1小時", "P3女拔_", "P3男拔_", "P3男拔_ 1小時", "P4女拔_", "P4男拔_", "P4男拔_ 1小時"
+        ]
+
+        # 取得年級、學校、時間欄位
+        grade_col = [col for col in df_valid.columns if "年級" in str(col)][0]
+        school_col = [col for col in df_valid.columns if "學校" in str(col)][0]
+        time_col = [col for col in df_valid.columns if "時間" in str(col)][0]
+
+        # 產生年級+卷
+        def get_grade卷(row):
+            base = f"{row[grade_col]}{row[school_col]}_"
+            if "1小時" in str(row[time_col]):
+                return f"{base} 1小時"
+            else:
+                return base
+
+        df_valid['年級+卷'] = df_valid.apply(get_grade卷, axis=1)
+
+        # 統計每個年級+卷的學生數
+        group_counts = df_valid.groupby('年級+卷').size().reset_index(name='人數')
+
+        # 建立最終表格
+        result = pd.DataFrame({'年級+卷': sorted(set(cb_list + kt_list + mc_list))})
+        result['cb'] = 0
+        result['kt'] = 0
+        result['mc'] = 0
+
+        # 填入各老師人數
+        for _, row in group_counts.iterrows():
+            g卷 = row['年級+卷']
+            n = row['人數']
+            if g卷 in cb_list:
+                result.loc[result['年級+卷'] == g卷, 'cb'] = n
+            if g卷 in kt_list:
+                result.loc[result['年級+卷'] == g卷, 'kt'] = n
+            if g卷 in mc_list:
+                result.loc[result['年級+卷'] == g卷, 'mc'] = n
+
+        result['總和'] = result[['cb', 'kt', 'mc']].sum(axis=1)
+        result = result[['年級+卷', 'cb', 'kt', 'mc', '總和']]
+
+        st.subheader("出卷老師的做卷人數統計表")
+        st.dataframe(result)
+
+        # 下載按鈕
+        def to_excel(df):
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False)
+            return output.getvalue()
+
+        st.download_button(
+            label="下載出卷老師統計表 Excel",
+            data=to_excel(result),
+            file_name="teacher_assignment_summary.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 elif step == "3. 計算老師佣金":
     st.header("計算老師佣金")
