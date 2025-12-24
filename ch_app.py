@@ -55,29 +55,44 @@ if menu == "上傳報表":
                 st.stop()
             df_valid = df_filtered[df_filtered[attend_col].astype(str).str.strip() == "出席"]
 
-            # 4. 檢查重複（加上時間欄位）
+            # 4. 檢查重複（加上時間欄位，並處理老師請假/代課問題）
             id_col = [col for col in df.columns if "學生編號" in str(col)]
             name_col = [col for col in df.columns if "學栍姓名" in str(col)]
             date_col = [col for col in df.columns if "上課日期" in str(col)]
             time_col = [col for col in df.columns if "時間" in str(col)]
-            if not (id_col and name_col and date_col and time_col):
-                st.error("找不到學生編號、學栍姓名、上課日期或時間欄位，請檢查檔案格式。")
+            teacher_status_col = [col for col in df.columns if "老師出席狀況" in str(col)]
+            if not (id_col and name_col and date_col and time_col and teacher_status_col):
+                st.error("找不到學生編號、學栍姓名、上課日期、時間或老師出席狀況欄位，請檢查檔案格式。")
                 st.write("所有欄位名稱：", list(df.columns))
                 st.stop()
             id_col = id_col[0]
             name_col = name_col[0]
             date_col = date_col[0]
             time_col = time_col[0]
+            teacher_status_col = teacher_status_col[0]
 
-            dup_cols = [id_col, name_col, date_col, class_col, time_col]
-            df_duplicates = df_valid[df_valid.duplicated(subset=dup_cols, keep=False)]
+            group_cols = [id_col, name_col, date_col, class_col, time_col]
+
+            def pick_row(group):
+                # 先找不是請假的
+                not_leave = group[group[teacher_status_col] != "請假"]
+                if not_leave.shape[0] > 0:
+                    return not_leave.iloc[0]
+                else:
+                    return group.iloc[0]
+
+            # 先去除老師請假重複
+            df_valid_nodup = df_valid.groupby(group_cols, as_index=False).apply(pick_row).reset_index(drop=True)
+
+            # 再找真正重複（理論上已經沒有，但保險起見）
+            df_duplicates = df_valid_nodup[df_valid_nodup.duplicated(subset=group_cols, keep=False)]
 
             st.write("## 篩選後有效資料")
-            st.dataframe(df_valid)
+            st.dataframe(df_valid_nodup)
 
             # 下載有效資料
             towrite = io.BytesIO()
-            df_valid.to_excel(towrite, index=False)
+            df_valid_nodup.to_excel(towrite, index=False)
             towrite.seek(0)
             st.download_button(
                 label="下載有效資料 Excel",
