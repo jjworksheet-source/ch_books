@@ -115,43 +115,44 @@ elif step == "2. 匯入做卷老師資料":
     if df_valid is None:
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
-        # 年級+卷對應老師規則
+        # 老師分配清單（全部用 _1小時，無空格）
         cb_list = [
-            "P1女拔_", "P1男拔_", "P1男拔_ 1小時", "P5女拔_", "P5男拔_", "P5男拔_ 1小時", "P6女拔_", "P6男拔_"
+            "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_"
         ]
         kt_list = [
             "P1保羅_", "P1喇沙_", "P2保羅_", "P2喇沙_", "P3保羅_", "P3喇沙_", "P4保羅_", "P4喇沙_", "P5保羅_", "P5喇沙_", "P6喇沙_"
         ]
         mc_list = [
-            "P2女拔_", "P2男拔_", "P2男拔_ 1小時", "P3女拔_", "P3男拔_", "P3男拔_ 1小時", "P4女拔_", "P4男拔_", "P4男拔_ 1小時"
+            "P2女拔_", "P2男拔_", "P2男拔_1小時", "P3女拔_", "P3男拔_", "P3男拔_1小時", "P4女拔_", "P4男拔_", "P4男拔_1小時"
         ]
 
-        # 取得年級、學校、時間欄位
         grade_col = [col for col in df_valid.columns if "年級" in str(col)][0]
         school_col = [col for col in df_valid.columns if "學校" in str(col)][0]
         time_col = [col for col in df_valid.columns if "時間" in str(col)][0]
 
-        # 產生年級+卷
         def get_grade卷(row):
-            base = f"{row[grade_col]}{row[school_col]}_"
+            base = f"{str(row[grade_col]).strip()}{str(row[school_col]).strip()}_"
             if "1小時" in str(row[time_col]):
-                return f"{base} 1小時"
+                return f"{base}1小時"
             else:
                 return base
 
         df_valid['年級+卷'] = df_valid.apply(get_grade卷, axis=1)
 
-        # 統計每個年級+卷的學生數
+        # Debug 輸出
+        st.write("有效資料產生的年級+卷：", list(df_valid['年級+卷'].unique()))
+        st.write("cb_list:", cb_list)
+        st.write("kt_list:", kt_list)
+        st.write("mc_list:", mc_list)
+
         group_counts = df_valid.groupby('年級+卷').size().reset_index(name='人數')
 
-        # 建立最終表格
         all卷 = sorted(set(cb_list + kt_list + mc_list))
         result = pd.DataFrame({'年級+卷': all卷})
         result['cb'] = 0
         result['kt'] = 0
         result['mc'] = 0
 
-        # 填入各老師人數
         for _, row in group_counts.iterrows():
             g卷 = row['年級+卷']
             n = row['人數']
@@ -168,7 +169,6 @@ elif step == "2. 匯入做卷老師資料":
         st.subheader("出卷老師的做卷人數統計表")
         st.dataframe(result)
 
-        # 下載按鈕
         def to_excel(df):
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
