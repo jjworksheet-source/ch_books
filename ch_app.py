@@ -130,8 +130,30 @@ elif step == "2. 匯入做卷老師資料":
         school_col = [col for col in df_valid.columns if "學校" in str(col)][0]
         time_col = [col for col in df_valid.columns if "時間" in str(col)][0]
 
+        # 自動萃取學校簡稱
+        def extract_short(s):
+            if pd.isna(s):
+                return ""
+            if "男拔" in s:
+                return "男拔"
+            if "女拔" in s:
+                return "女拔"
+            if "保羅" in s:
+                return "保羅"
+            if "喇沙" in s:
+                return "喇沙"
+            if "英華" in s:
+                return "英華"
+            if "聖若瑟" in s:
+                return "聖若瑟"
+            if "真光" in s:
+                return "真光"
+            return s[:2]  # fallback
+
+        df_valid['學校簡稱'] = df_valid[school_col].apply(extract_short)
+
         def get_grade卷(row):
-            base = f"{str(row[grade_col]).strip()}{str(row[school_col]).strip()}_"
+            base = f"{str(row[grade_col]).strip()}{str(row['學校簡稱']).strip()}_"
             if "1小時" in str(row[time_col]):
                 return f"{base}1小時"
             else:
