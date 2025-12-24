@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 
 st.set_page_config(page_title="Jolly Jupiter IT Department", layout="wide")
 
@@ -24,41 +25,43 @@ if menu == "上傳報表":
     uploaded_file = st.file_uploader("上傳 Excel 報表", type=["xls", "xlsx"])
     if uploaded_file:
         try:
+            # 1. 正確讀取第6列為欄位名稱
             df = pd.read_excel(uploaded_file, header=5)
             st.success("檔案上傳成功！")
 
-            # 1. 篩選班別
+            # 2. 篩選班別
             class_list = [
                 "etup 測考卷 - 高小",
                 "etlp 測考卷 - 初小",
                 "etlp 測考卷 - 初小 - 1小時",
                 "etup 測考卷 - 高小 - 1小時"
             ]
-            # 嘗試自動尋找班別欄位
             class_col = [col for col in df.columns if "班別" in str(col)]
             if class_col:
                 class_col = class_col[0]
             else:
                 st.error("找不到班別欄位，請檢查檔案格式。")
+                st.write("所有欄位名稱：", list(df.columns))
                 st.stop()
             df_filtered = df[df[class_col].astype(str).str.strip().isin(class_list)]
 
-            # 2. 只保留出席
+            # 3. 只保留出席
             attend_col = [col for col in df.columns if "出席狀況" in str(col)]
             if attend_col:
                 attend_col = attend_col[0]
             else:
                 st.error("找不到學生出席狀況欄位，請檢查檔案格式。")
+                st.write("所有欄位名稱：", list(df.columns))
                 st.stop()
             df_valid = df_filtered[df_filtered[attend_col].astype(str).str.strip() == "出席"]
 
-            # 3. 檢查重複
-            # 自動尋找學生編號、學栍姓名、日期欄位
+            # 4. 檢查重複
             id_col = [col for col in df.columns if "學生編號" in str(col)]
             name_col = [col for col in df.columns if "學栍姓名" in str(col)]
-            date_col = [col for col in df.columns if "日期" in str(col)]
+            date_col = [col for col in df.columns if "日期" in str(col) and "上課" not in str(col)]
             if not (id_col and name_col and date_col):
                 st.error("找不到學生編號、學栍姓名或日期欄位，請檢查檔案格式。")
+                st.write("所有欄位名稱：", list(df.columns))
                 st.stop()
             id_col = id_col[0]
             name_col = name_col[0]
@@ -70,9 +73,30 @@ if menu == "上傳報表":
             st.write("## 篩選後有效資料")
             st.dataframe(df_valid)
 
+            # 下載有效資料
+            towrite = io.BytesIO()
+            df_valid.to_excel(towrite, index=False)
+            towrite.seek(0)
+            st.download_button(
+                label="下載有效資料 Excel",
+                data=towrite,
+                file_name="valid_data.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
             if not df_duplicates.empty:
                 st.warning(f"發現 {len(df_duplicates)} 筆重複資料（同一學生編號、姓名、日期、班別）如下：")
                 st.dataframe(df_duplicates)
+                # 下載重複資料
+                towrite_dup = io.BytesIO()
+                df_duplicates.to_excel(towrite_dup, index=False)
+                towrite_dup.seek(0)
+                st.download_button(
+                    label="下載重複資料 Excel",
+                    data=towrite_dup,
+                    file_name="duplicate_data.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
             else:
                 st.success("沒有發現重複資料！")
 
