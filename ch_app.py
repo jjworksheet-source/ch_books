@@ -24,7 +24,7 @@ if menu == "上傳報表":
     uploaded_file = st.file_uploader("上傳 Excel 報表", type=["xls", "xlsx"])
     if uploaded_file:
         try:
-            df = pd.read_excel(uploaded_file)
+            df = pd.read_excel(uploaded_file, header=5)
             st.success("檔案上傳成功！")
 
             # 1. 篩選班別
