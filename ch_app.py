@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="行政管理系統", layout="wide")
+st.set_page_config(page_title="Jolly Jupiter IT Department", layout="wide")
 
 st.markdown("""
     <style>
@@ -10,17 +10,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("公司內部行政管理系統")
-st.subheader("專業、簡潔的佣金與報銷管理工具")
+st.title("Jolly Jupiter IT Department")
+st.subheader("中文組做卷管理系統")
 
 menu = st.sidebar.selectbox(
     "功能選單",
-    ("佣金計算", "報銷管理", "（預留）印刷物料預測")
+    ("上傳報表", "報銷管理", "（預留）印刷物料預測")
 )
 
-if menu == "佣金計算":
-    st.header("佣金計算模組")
-    st.write("請上傳員工報表，選擇計算區間與員工，系統將自動計算佣金。")
+if menu == "上傳報表":
+    st.header("upload jjcustomer report")
     uploaded_file = st.file_uploader("上傳 Excel 報表", type=["xls", "xlsx"])
 elif menu == "報銷管理":
     st.header("報銷管理模組")
@@ -30,4 +29,4 @@ else:
     st.info("此功能尚未開放，敬請期待。")
 
 st.markdown("---")
-st.caption("© 2025 公司名稱 | 行政管理系統")
+st.caption("© 2025 Jolly Jupiter IT Department")
