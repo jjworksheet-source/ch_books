@@ -78,7 +78,7 @@ if step == "1. 做卷有效資料":
 
         # Find duplicates (rows that would have been dropped)
         merged = df_filtered.merge(df_valid[group_cols], on=group_cols, how='left', indicator=True)
-        df_duplicates = df_filtered[merged['_merge'] == 'left_only']
+        df_duplicates = merged.loc[merged['_merge'] == 'left_only', df_filtered.columns]
 
         st.success(f"有效資料共 {len(df_valid)} 筆，重複資料共 {len(df_duplicates)} 筆。")
         st.subheader("有效資料")
@@ -145,7 +145,8 @@ elif step == "2. 匯入做卷老師資料":
         group_counts = df_valid.groupby('年級+卷').size().reset_index(name='人數')
 
         # 建立最終表格
-        result = pd.DataFrame({'年級+卷': sorted(set(cb_list + kt_list + mc_list))})
+        all卷 = sorted(set(cb_list + kt_list + mc_list))
+        result = pd.DataFrame({'年級+卷': all卷})
         result['cb'] = 0
         result['kt'] = 0
         result['mc'] = 0
