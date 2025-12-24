@@ -58,14 +58,14 @@ if menu == "上傳報表":
             # 4. 檢查重複
             id_col = [col for col in df.columns if "學生編號" in str(col)]
             name_col = [col for col in df.columns if "學栍姓名" in str(col)]
-            date_col = [col for col in df.columns if "日期" in str(col) and "上課" not in str(col)]
-            if not (id_col and name_col and date_col):
-                st.error("找不到學生編號、學栍姓名或日期欄位，請檢查檔案格式。")
-                st.write("所有欄位名稱：", list(df.columns))
-                st.stop()
-            id_col = id_col[0]
-            name_col = name_col[0]
-            date_col = date_col[0]
+           date_col = [col for col in df.columns if "上課日期" in str(col)]
+           if not (id_col and name_col and date_col):
+               st.error("找不到學生編號、學栍姓名或上課日期欄位，請檢查檔案格式。")
+               st.write("所有欄位名稱：", list(df.columns))
+               st.stop()
+           id_col = id_col[0]
+           name_col = name_col[0]
+           date_col = date_col[0]
 
             dup_cols = [id_col, name_col, date_col, class_col]
             df_duplicates = df_valid[df_valid.duplicated(subset=dup_cols, keep=False)]
