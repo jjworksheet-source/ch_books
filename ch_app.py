@@ -182,25 +182,47 @@ elif step == "2. 出卷老師資料":
     else:
         # 統計表格
         teacher_types = ["cb", "kt", "mc"]
-        # 取得所有年級_卷種類
         juan_types = sorted(df_valid["年級_卷"].unique(), key=lambda x: (x.replace("_1小時", ""), "_1小時" not in x, x))
-        # 建立統計表
-        result = pd.DataFrame({"年級_卷": juan_types})
-        for t in teacher_types:
-            result[t] = result["年級_卷"].apply(lambda j: (df_valid[(df_valid["年級_卷"] == j) & (df_valid["出卷老師"] == t)].shape[0]))
-        result["總和"] = result[teacher_types].sum(axis=1)
-        # 最下方加總和
-        total_row = pd.DataFrame({
-            "年級_卷": ["總和"],
-            "cb": [result["cb"].sum()],
-            "kt": [result["kt"].sum()],
-            "mc": [result["mc"].sum()],
-            "總和": [result["總和"].sum()]
-        })
-        result = pd.concat([result, total_row], ignore_index=True)
+
+        rows = []
+        for juan in juan_types:
+            # 判斷單價
+            price = 25 if "1小時" in juan else 32
+            cb_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "cb")].shape[0]
+            kt_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "kt")].shape[0]
+            mc_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "mc")].shape[0]
+            row = {
+                "年級+卷": juan,
+                "單價": price,
+                "cb": cb_count,
+                "cb 佣金": cb_count * price,
+                "kt": kt_count,
+                "kt 佣金": kt_count * price,
+                "mc": mc_count,
+                "mc 佣金": mc_count * price,
+                "總和": cb_count + kt_count + mc_count
+            }
+            rows.append(row)
+        result = pd.DataFrame(rows)
+
+        # 加總列
+        total_row = {
+            "年級+卷": "總和",
+            "單價": "-",
+            "cb": result["cb"].sum(),
+            "cb 佣金": result["cb 佣金"].sum(),
+            "kt": result["kt"].sum(),
+            "kt 佣金": result["kt 佣金"].sum(),
+            "mc": result["mc"].sum(),
+            "mc 佣金": result["mc 佣金"].sum(),
+            "總和": result["總和"].sum()
+        }
+        result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
+
         # 顯示
-        st.subheader("出卷老師的做卷人數統計表")
+        st.subheader("出卷老師的做卷人數及佣金統計表")
         st.dataframe(result)
+
         # 下載
         def to_excel(df):
             output = BytesIO()
