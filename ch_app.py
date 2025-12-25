@@ -13,7 +13,7 @@ step = st.sidebar.radio(
     [
         "1. 做卷有效資料",
         "2. 出卷老師資料",
-        "3. 計算老師佣金",
+        "3. 分校做卷情況",
         "4. 其他"
     ]
 )
@@ -236,9 +236,66 @@ elif step == "2. 出卷老師資料":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-elif step == "3. 計算老師佣金":
-    st.header("計算老師佣金")
-    st.info("此步驟尚未實作，請稍候。")
+elif step == "3. 分校做卷情況":
+    st.header("分校做卷情況")
+    df_valid = st.session_state.get('valid_data', None)
+    if df_valid is None:
+        st.warning("請先在步驟一上傳並產生有效資料。")
+    else:
+        # 分校清單
+        branch_list = ["IRM", "KLN", "NFC", "NPC", "PEC", "SMC", "TKO", "WCC", "WNC"]
+        # 檢查分校欄位
+        branch_col = [col for col in df_valid.columns if "分校" in str(col)]
+        if not branch_col:
+            st.error("找不到分校欄位，請檢查檔案格式。")
+        else:
+            branch_col = branch_col[0]
+            juan_types = sorted(df_valid["年級_卷"].unique(), key=lambda x: (x.replace("_1小時", ""), "_1小時" not in x, x))
+            rows = []
+            for juan in juan_types:
+                price = 25 if "1小時" in juan else 32
+                row = {"年級+卷": juan, "單價": price}
+                total_students = 0
+                for branch in branch_list:
+                    s_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid[branch_col] == branch)].shape[0]
+                    row[f"{branch}_S"] = s_count
+                    row[f"{branch}_P"] = s_count * price
+                    total_students += s_count
+                row["總和"] = total_students
+                rows.append(row)
+            result = pd.DataFrame(rows)
+
+            # 加總列
+            total_row = {"年級+卷": "總和", "單價": "-"}
+            for branch in branch_list:
+                total_row[f"{branch}_S"] = result[f"{branch}_S"].sum()
+                total_row[f"{branch}_P"] = result[f"{branch}_P"].sum()
+            total_row["總和"] = result["總和"].sum()
+            result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
+
+            # 指定欄位順序
+            columns = ["年級+卷", "單價"]
+            for branch in branch_list:
+                columns += [f"{branch}_S", f"{branch}_P"]
+            columns += ["總和"]
+            result = result[columns]
+
+            # 顯示
+            st.subheader("分校做卷情況統計表")
+            st.dataframe(result)
+
+            # 下載
+            def to_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False)
+                return output.getvalue()
+            st.download_button(
+                label="下載分校做卷情況統計表 Excel",
+                data=to_excel(result),
+                file_name="branch_assignment_summary.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
 else:
     st.header("其他功能")
