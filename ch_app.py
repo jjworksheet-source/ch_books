@@ -18,21 +18,21 @@ step = st.sidebar.radio(
     ]
 )
 
-# 用於全局暫存有效資料
-if 'valid_data' not in st.session_state:
-    st.session_state['valid_data'] = None
-
 # cb/kt/mc list
 cb_list = [
-    "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_"
+    "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_", "P6男拔_1小時"
 ]
 kt_list = [
-    "P1保羅_", "P1喇沙_", "P2保羅_", "P2喇沙_", "P3保羅_", "P3喇沙_", "P4保羅_", "P4喇沙_", "P5保羅_", "P5喇沙_", "P6喇沙_"
+    "P1保羅_", "P1喇沙_", "P2保羅_", "P2喇沙_", "P3保羅_", "P3喇沙_", "P4保羅_", "P4喇沙_", "P5保羅_", "P5喇沙_", "P6保羅_", "P6喇沙_"
 ]
 mc_list = [
     "P2女拔_", "P2男拔_", "P2男拔_1小時", "P3女拔_", "P3男拔_", "P3男拔_1小時", "P4女拔_", "P4男拔_", "P4男拔_1小時"
 ]
 all_juan_list = cb_list + kt_list + mc_list
+
+# 用於全局暫存有效資料
+if 'valid_data' not in st.session_state:
+    st.session_state['valid_data'] = None
 
 if step == "1. 做卷有效資料":
     st.header("上傳報表 (JJCustomer Report)")
@@ -183,7 +183,7 @@ elif step == "2. 出卷老師資料":
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
         # 只統計三個 list 的年級_卷
-        juan_types = [j for j in all_juan_list if j in df_valid["年級_卷"].unique()]
+        juan_types = [j for j in cb_list + kt_list + mc_list if j in df_valid["年級_卷"].unique()]
         rows = []
         for juan in juan_types:
             price = 25 if "1小時" in juan else 32
@@ -253,7 +253,7 @@ elif step == "3. 分校做卷情況":
         else:
             branch_col = branch_col[0]
             # 只統計三個 list 的年級_卷
-            juan_types = [j for j in all_juan_list if j in df_valid["年級_卷"].unique()]
+            juan_types = [j for j in cb_list + kt_list + mc_list if j in df_valid["年級_卷"].unique()]
             rows = []
             for juan in juan_types:
                 price = 25 if "1小時" in juan else 32
