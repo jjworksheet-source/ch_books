@@ -190,16 +190,20 @@ elif step == "2. 出卷老師資料":
             cb_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "cb")].shape[0]
             kt_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "kt")].shape[0]
             mc_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "mc")].shape[0]
+            cb_commission = cb_count * price
+            kt_commission = kt_count * price
+            mc_commission = mc_count * price
             row = {
                 "年級+卷": juan,
                 "單價": price,
                 "cb": cb_count,
-                "cb 佣金": cb_count * price,
+                "cb 佣金": cb_commission,
                 "kt": kt_count,
-                "kt 佣金": kt_count * price,
+                "kt 佣金": kt_commission,
                 "mc": mc_count,
-                "mc 佣金": mc_count * price,
-                "總和": cb_count + kt_count + mc_count
+                "mc 佣金": mc_commission,
+                "總和": cb_count + kt_count + mc_count,
+                "佣金總和": cb_commission + kt_commission + mc_commission
             }
             rows.append(row)
         result = pd.DataFrame(rows)
@@ -214,12 +218,13 @@ elif step == "2. 出卷老師資料":
             "kt 佣金": result["kt 佣金"].sum(),
             "mc": result["mc"].sum(),
             "mc 佣金": result["mc 佣金"].sum(),
-            "總和": result["總和"].sum()
+            "總和": result["總和"].sum(),
+            "佣金總和": result["佣金總和"].sum()
         }
         result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
 
         # 儲存總金額到 session_state
-        st.session_state['step2_total'] = total_row["cb 佣金"] + total_row["kt 佣金"] + total_row["mc 佣金"]
+        st.session_state['step2_total'] = total_row["佣金總和"]
 
         # 顯示
         st.subheader("出卷老師的做卷人數及佣金統計表")
