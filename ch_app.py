@@ -262,6 +262,7 @@ elif step == "3. 分校做卷情況":
                     row[f"{branch}_P"] = s_count * price
                     total_students += s_count
                 row["總和"] = total_students
+                row["總和_P"] = total_students * price
                 rows.append(row)
             result = pd.DataFrame(rows)
 
@@ -271,13 +272,14 @@ elif step == "3. 分校做卷情況":
                 total_row[f"{branch}_S"] = result[f"{branch}_S"].sum()
                 total_row[f"{branch}_P"] = result[f"{branch}_P"].sum()
             total_row["總和"] = result["總和"].sum()
+            total_row["總和_P"] = result["總和_P"].sum()
             result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
 
             # 指定欄位順序
             columns = ["年級+卷", "單價"]
             for branch in branch_list:
                 columns += [f"{branch}_S", f"{branch}_P"]
-            columns += ["總和"]
+            columns += ["總和", "總和_P"]
             result = result[columns]
 
             # 顯示
