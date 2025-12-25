@@ -77,7 +77,6 @@ if step == "1. 做卷有效資料":
             df_valid = df_filtered.drop_duplicates(subset=group_cols, keep='first')
 
         # 新增「年級_卷」欄位
-        # 1. 找出年級、學校、班別欄位
         grade_col = [col for col in df_valid.columns if "年級" in str(col)]
         school_col = [col for col in df_valid.columns if "學校" in str(col)]
         if not grade_col or not school_col:
@@ -113,6 +112,42 @@ if step == "1. 做卷有效資料":
             return juan
 
         df_valid["年級_卷"] = df_valid.apply(make_grade_juan, axis=1)
+
+        # 新增「出卷老師」欄位
+        cb_list = [
+            "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_"
+        ]
+        kt_list = [
+            "P1保羅_", "P1喇沙_", "P2保羅_", "P2喇沙_", "P3保羅_", "P3喇沙_", "P4保羅_", "P4喇沙_", "P5保羅_", "P5喇沙_", "P6喇沙_"
+        ]
+        mc_list = [
+            "P2女拔_", "P2男拔_", "P2男拔_1小時", "P3女拔_", "P3男拔_", "P3男拔_1小時", "P4女拔_", "P4男拔_", "P4男拔_1小時"
+        ]
+
+        def get_teacher(juan):
+            if juan in cb_list:
+                return "cb"
+            elif juan in kt_list:
+                return "kt"
+            elif juan in mc_list:
+                return "mc"
+            else:
+                return ""
+
+        df_valid["出卷老師"] = df_valid["年級_卷"].apply(get_teacher)
+
+        # 調整欄位順序：將「年級_卷」和「出卷老師」插入在「班別」和「上課日期」之間
+        columns = list(df_valid.columns)
+        class_idx = columns.index(class_col)
+        date_idx = columns.index(date_col)
+        # 移除新欄位，準備插入
+        columns.remove("年級_卷")
+        columns.remove("出卷老師")
+        # 插入順序：班別後面插入年級_卷，再插入出卷老師
+        columns.insert(class_idx + 1, "年級_卷")
+        columns.insert(class_idx + 2, "出卷老師")
+        # 重新排序
+        df_valid = df_valid[columns]
 
         # Find duplicates (rows that would have been dropped)
         merged = df_filtered.merge(df_valid[group_cols], on=group_cols, how='left', indicator=True)
