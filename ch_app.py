@@ -136,17 +136,9 @@ if step == "1. 做卷有效資料":
 
         df_valid["出卷老師"] = df_valid["年級_卷"].apply(get_teacher)
 
-        # 調整欄位順序：將「年級_卷」和「出卷老師」插入在「班別」和「上課日期」之間
-        columns = list(df_valid.columns)
-        class_idx = columns.index(class_col)
-        date_idx = columns.index(date_col)
-        # 移除新欄位，準備插入
-        columns.remove("年級_卷")
-        columns.remove("出卷老師")
-        # 插入順序：班別後面插入年級_卷，再插入出卷老師
-        columns.insert(class_idx + 1, "年級_卷")
-        columns.insert(class_idx + 2, "出卷老師")
-        # 重新排序
+        # 將「年級_卷」和「出卷老師」移到最後
+        columns = [col for col in df_valid.columns if col not in ["年級_卷", "出卷老師"]]
+        columns += ["年級_卷", "出卷老師"]
         df_valid = df_valid[columns]
 
         # Find duplicates (rows that would have been dropped)
