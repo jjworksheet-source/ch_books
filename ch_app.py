@@ -22,6 +22,18 @@ step = st.sidebar.radio(
 if 'valid_data' not in st.session_state:
     st.session_state['valid_data'] = None
 
+# cb/kt/mc list
+cb_list = [
+    "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_"
+]
+kt_list = [
+    "P1保羅_", "P1喇沙_", "P2保羅_", "P2喇沙_", "P3保羅_", "P3喇沙_", "P4保羅_", "P4喇沙_", "P5保羅_", "P5喇沙_", "P6喇沙_"
+]
+mc_list = [
+    "P2女拔_", "P2男拔_", "P2男拔_1小時", "P3女拔_", "P3男拔_", "P3男拔_1小時", "P4女拔_", "P4男拔_", "P4男拔_1小時"
+]
+all_juan_list = cb_list + kt_list + mc_list
+
 if step == "1. 做卷有效資料":
     st.header("上傳報表 (JJCustomer Report)")
     uploaded_file = st.file_uploader("請上傳 JJCustomer 報表 (xls/xlsx)", type=["xls", "xlsx"])
@@ -114,16 +126,6 @@ if step == "1. 做卷有效資料":
         df_valid["年級_卷"] = df_valid.apply(make_grade_juan, axis=1)
 
         # 新增「出卷老師」欄位
-        cb_list = [
-            "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_"
-        ]
-        kt_list = [
-            "P1保羅_", "P1喇沙_", "P2保羅_", "P2喇沙_", "P3保羅_", "P3喇沙_", "P4保羅_", "P4喇沙_", "P5保羅_", "P5喇沙_", "P6喇沙_"
-        ]
-        mc_list = [
-            "P2女拔_", "P2男拔_", "P2男拔_1小時", "P3女拔_", "P3男拔_", "P3男拔_1小時", "P4女拔_", "P4男拔_", "P4男拔_1小時"
-        ]
-
         def get_teacher(juan):
             if juan in cb_list:
                 return "cb"
@@ -180,13 +182,10 @@ elif step == "2. 出卷老師資料":
     if df_valid is None:
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
-        # 統計表格
-        teacher_types = ["cb", "kt", "mc"]
-        juan_types = sorted(df_valid["年級_卷"].unique(), key=lambda x: (x.replace("_1小時", ""), "_1小時" not in x, x))
-
+        # 只統計三個 list 的年級_卷
+        juan_types = [j for j in all_juan_list if j in df_valid["年級_卷"].unique()]
         rows = []
         for juan in juan_types:
-            # 判斷單價
             price = 25 if "1小時" in juan else 32
             cb_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "cb")].shape[0]
             kt_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "kt")].shape[0]
@@ -219,6 +218,9 @@ elif step == "2. 出卷老師資料":
         }
         result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
 
+        # 儲存總金額到 session_state
+        st.session_state['step2_total'] = total_row["cb 佣金"] + total_row["kt 佣金"] + total_row["mc 佣金"]
+
         # 顯示
         st.subheader("出卷老師的做卷人數及佣金統計表")
         st.dataframe(result)
@@ -250,7 +252,8 @@ elif step == "3. 分校做卷情況":
             st.error("找不到分校欄位，請檢查檔案格式。")
         else:
             branch_col = branch_col[0]
-            juan_types = sorted(df_valid["年級_卷"].unique(), key=lambda x: (x.replace("_1小時", ""), "_1小時" not in x, x))
+            # 只統計三個 list 的年級_卷
+            juan_types = [j for j in all_juan_list if j in df_valid["年級_卷"].unique()]
             rows = []
             for juan in juan_types:
                 price = 25 if "1小時" in juan else 32
@@ -282,9 +285,22 @@ elif step == "3. 分校做卷情況":
             columns += ["總和", "總和_P"]
             result = result[columns]
 
+            # 取得 step2 總金額
+            step2_total = st.session_state.get('step2_total', None)
+            step3_total = total_row["總和_P"]
+
             # 顯示
             st.subheader("分校做卷情況統計表")
             st.dataframe(result)
+
+            # 自動比對總金額
+            if step2_total is not None:
+                if step2_total == step3_total:
+                    st.success(f"總金額一致：{step2_total} 元")
+                else:
+                    st.error(f"總金額不一致！Step 2：{step2_total} 元，Step 3：{step3_total} 元，請檢查資料！")
+            else:
+                st.info("尚未產生 Step 2 總金額，請先執行 Step 2。")
 
             # 下載
             def to_excel(df):
