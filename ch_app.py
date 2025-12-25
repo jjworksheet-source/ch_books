@@ -76,6 +76,44 @@ if step == "1. 做卷有效資料":
         else:
             df_valid = df_filtered.drop_duplicates(subset=group_cols, keep='first')
 
+        # 新增「年級_卷」欄位
+        # 1. 找出年級、學校、班別欄位
+        grade_col = [col for col in df_valid.columns if "年級" in str(col)]
+        school_col = [col for col in df_valid.columns if "學校" in str(col)]
+        if not grade_col or not school_col:
+            st.error("找不到年級或學校欄位，請檢查檔案格式。")
+            st.stop()
+        grade_col = grade_col[0]
+        school_col = school_col[0]
+
+        def extract_school_short(s):
+            # 去掉第一個底線，取第一個中文字（如 _喇沙_喇沙小學 -> 喇沙）
+            if pd.isna(s):
+                return ""
+            s = str(s)
+            if s.startswith("_"):
+                s = s[1:]
+            # 取第一個中文字（遇到底線或非中文字就停）
+            result = ""
+            for ch in s:
+                if '\u4e00' <= ch <= '\u9fff':
+                    result += ch
+                elif ch == "_":
+                    break
+            return result
+
+        def make_grade_juan(row):
+            grade = str(row[grade_col]).strip() if not pd.isna(row[grade_col]) else ""
+            school = extract_school_short(row[school_col])
+            juan = f"{grade}{school}_"
+            # 檢查班別是否有1小時
+            class_val = str(row[class_col]) if not pd.isna(row[class_col]) else ""
+            if "1小時" in class_val:
+                juan += "1小時"
+            return juan
+
+        df_valid["年級_卷"] = df_valid.apply(make_grade_juan, axis=1)
+
         # Find duplicates (rows that would have been dropped)
         merged = df_filtered.merge(df_valid[group_cols], on=group_cols, how='left', indicator=True)
         df_duplicates = merged.loc[merged['_merge'] == 'left_only', df_filtered.columns]
