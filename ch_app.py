@@ -1,13 +1,9 @@
 import streamlit as st
-st.write(st.secrets)
-import streamlit as st
 import pandas as pd
 from io import BytesIO
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import json
 
 st.set_page_config(page_title="Jolly Jupiter IT Department", layout="wide")
+
 st.title("中文組做卷管理系統")
 
 # Sidebar with step-by-step templates
@@ -37,30 +33,6 @@ all_juan_list = cb_list + kt_list + mc_list
 # 用於全局暫存有效資料
 if 'valid_data' not in st.session_state:
     st.session_state['valid_data'] = None
-if 'step2_result' not in st.session_state:
-    st.session_state['step2_result'] = None
-if 'step3_result' not in st.session_state:
-    st.session_state['step3_result'] = None
-
-# Google Sheets 上傳功能（使用 Streamlit secrets）
-def upload_to_google_sheets(df, sheet_name, worksheet_name):
-    """上傳 DataFrame 到 Google Sheets"""
-    try:
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        service_account_info = st.secrets["gcp_service_account"]
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(service_account_info), scope)
-        client = gspread.authorize(creds)
-        sheet = client.open(sheet_name)
-        try:
-            worksheet = sheet.worksheet(worksheet_name)
-        except:
-            worksheet = sheet.add_worksheet(title=worksheet_name, rows="1000", cols="20")
-        worksheet.clear()
-        worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-        return True
-    except Exception as e:
-        st.error(f"上傳失敗：{e}")
-        return False
 
 if step == "1. 做卷有效資料":
     st.header("上傳報表 (JJCustomer Report)")
@@ -253,16 +225,10 @@ elif step == "2. 出卷老師資料":
 
         # 儲存總金額到 session_state
         st.session_state['step2_total'] = total_row["佣金總和"]
-        st.session_state['step2_result'] = result
 
         # 顯示
         st.subheader("出卷老師的做卷人數及佣金統計表")
         st.dataframe(result)
-
-        # 上傳到 Google Sheets
-        if st.button("上傳到 Google Sheets"):
-            if upload_to_google_sheets(result, "中文組做卷管理系統", "出卷老師資料"):
-                st.success("已成功上傳到 Google Sheets！")
 
         # 下載
         def to_excel(df):
@@ -327,9 +293,6 @@ elif step == "3. 分校做卷情況":
             # 取得 step2 總金額
             step2_total = st.session_state.get('step2_total', None)
             step3_total = total_row["總和_P"]
-            
-            # 儲存 step3 結果
-            st.session_state['step3_result'] = result
 
             # 顯示
             st.subheader("分校做卷情況統計表")
@@ -343,11 +306,6 @@ elif step == "3. 分校做卷情況":
                     st.error(f"總金額不一致！Step 2：{step2_total} 元，Step 3：{step3_total} 元，請檢查資料！")
             else:
                 st.info("尚未產生 Step 2 總金額，請先執行 Step 2。")
-
-            # 上傳到 Google Sheets
-            if st.button("上傳到 Google Sheets"):
-                if upload_to_google_sheets(result, "中文組做卷管理系統", "分校做卷情況"):
-                    st.success("已成功上傳到 Google Sheets！")
 
             # 下載
             def to_excel(df):
