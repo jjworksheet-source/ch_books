@@ -4,7 +4,7 @@ from io import BytesIO
 
 st.set_page_config(page_title="Jolly Jupiter IT Department", layout="wide")
 
-st.title("中文組做卷管理系統")
+st.title("中文組做卷管理系統v2")
 
 # Sidebar with step-by-step templates
 st.sidebar.title("操作步驟")
