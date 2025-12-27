@@ -4,3 +4,4 @@ openpyxl
 google-api-python-client
 google-auth
 google-auth-oauthlib  # Optional, but good for future OAuth
+xlrd >= 2.0.1
