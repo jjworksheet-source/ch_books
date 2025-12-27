@@ -5,9 +5,8 @@ from googleapiclient.discovery import build
 import pandas as pd
 from io import BytesIO
 
-# Load the key from secrets
 credentials = service_account.Credentials.from_service_account_info(
-    json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"]),
+    st.secrets["GOOGLE_SERVICE_ACCOUNT"],
     scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 )
 
