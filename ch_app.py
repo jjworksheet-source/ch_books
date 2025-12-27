@@ -11,6 +11,7 @@ from io import BytesIO
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import streamlit as st
+from google.oauth2 import service_account
 
 # Load the key from secrets
 credentials = service_account.Credentials.from_service_account_info(
