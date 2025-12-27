@@ -2,6 +2,38 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import streamlit as st
+
+# Load the key from secrets
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["GOOGLE_SERVICE_ACCOUNT"],
+    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+)
+
+# Connect to APIs
+sheets_service = build("sheets", "v4", credentials=credentials)
+drive_service = build("drive", "v3", credentials=credentials)
+
+# Test: Read a specific range from your Sheet (for privacy, use ranges like A1:D10 for one person's data)
+sheet_id = "https://docs.google.com/spreadsheets/d/1jbFLlnlFxDh_gnn4XVhKSJtrI7Ic-tVW4S7LAH1fhgk/edit?gid=0#gid=0"  # From the Sheet URL, e.g., /spreadsheets/d/ABC123/edit
+range_name = "出卷老師資料!A1:M100"  # Change to your range
+result = sheets_service.spreadsheets().values().get(spreadsheetId=sheet_id, range=range_name).execute()
+values = result.get("values", [])
+st.write("Test Data from Sheet:", values)  # This shows in the app
+
+# Optional: Button to generate and share a report
+if st.button("Generate Personal Report"):
+    # Create a new file
+    new_file = {'name': 'Personal_Report.xlsx', 'mimeType': 'application/vnd.google-apps.spreadsheet'}
+    new_file_id = drive_service.files().create(body=new_file).execute()['id']
+    # Add data to it (example from above)
+    sheets_service.spreadsheets().values().update(spreadsheetId=new_file_id, range="A1", valueInputOption="RAW", body={"values": values}).execute()
+    # Share to a user
+    drive_service.permissions().create(fileId=new_file_id, body={'type': 'user', 'role': 'viewer', 'emailAddress': 'receiver@example.com'}).execute()
+    st.success("Report created and shared to Drive!")
+
 st.set_page_config(page_title="Jolly Jupiter IT Department", layout="wide")
 
 st.title("中文組做卷管理系統v2")
