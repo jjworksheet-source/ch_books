@@ -53,7 +53,10 @@ if st.button("Generate Personal Report"):
         drive_service.permissions().create(fileId=new_file_id, body={'type': 'user', 'role': 'viewer', 'emailAddress': 'receiver@example.com'}).execute()
         st.success("Report created and shared to Drive!")
     except HttpError as e:
-        st.error(f"Error: {e}")
+        if "storageQuotaExceeded" in str(e):
+            st.error("Google Drive 空間已滿，請清理空間或升級方案。")
+        else:
+            st.error(f"Error: {e}")
 
 # cb/kt/mc list
 cb_list = [
@@ -87,7 +90,10 @@ def upload_to_sheets(df, sheet_id=None, sheet_name="Sheet1"):
         sheets_service.spreadsheets().values().update(spreadsheetId=sheet_id, range=sheet_name, valueInputOption="RAW", body=body).execute()
         return sheet_id
     except HttpError as e:
-        st.error(f"Upload Error: {e} - Check permissions or Sheet ID.")
+        if "storageQuotaExceeded" in str(e):
+            st.error("Google Drive 空間已滿，請清理空間或升級方案。")
+        else:
+            st.error(f"Upload Error: {e} - Check permissions or Sheet ID.")
 
 # Your to_excel function (for download)
 def to_excel(df):
@@ -219,14 +225,16 @@ if step == "1. 做卷有效資料":
             st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
         # Save valid_data to session_state for step 2
         st.session_state['valid_data'] = df_valid
+
 elif step == "2. 出卷老師資料":
     st.header("出卷老師資料")
     df_valid = st.session_state.get('valid_data', None)
     if df_valid is None:
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
-        # ... (your existing code for generating result DF)
-        # Download and Upload buttons
+        # Example summary: count of assignments per teacher
+        result = df_valid.groupby("出卷老師").size().reset_index(name="數量")
+        st.dataframe(result)
         st.download_button(
             label="下載出卷老師統計表 Excel",
             data=to_excel(result),
@@ -237,24 +245,32 @@ elif step == "2. 出卷老師資料":
         if st.button("Upload Teacher Summary to Google Sheets"):
             uploaded_id = upload_to_sheets(result, upload_sheet_id)
             st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
+
 elif step == "3. 分校做卷情況":
     st.header("分校做卷情況")
     df_valid = st.session_state.get('valid_data', None)
     if df_valid is None:
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
-        # ... (your existing code for generating result DF)
-        # Download and Upload buttons
-        st.download_button(
-            label="下載分校做卷情況統計表 Excel",
-            data=to_excel(result),
-            file_name="branch_assignment_summary.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
-        if st.button("Upload Branch Summary to Google Sheets"):
-            uploaded_id = upload_to_sheets(result, upload_sheet_id)
-            st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
+        # Example summary: count of assignments per school
+        school_col = [col for col in df_valid.columns if "學校" in str(col)]
+        if not school_col:
+            st.error("找不到學校欄位，請檢查有效資料。")
+        else:
+            school_col = school_col[0]
+            result = df_valid.groupby(school_col).size().reset_index(name="數量")
+            st.dataframe(result)
+            st.download_button(
+                label="下載分校做卷情況統計表 Excel",
+                data=to_excel(result),
+                file_name="branch_assignment_summary.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
+            if st.button("Upload Branch Summary to Google Sheets"):
+                uploaded_id = upload_to_sheets(result, upload_sheet_id)
+                st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
+
 else:
     st.header("其他功能")
     st.info("此步驟尚未實作，請稍候。")
