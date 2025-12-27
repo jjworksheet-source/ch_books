@@ -75,7 +75,7 @@ if 'valid_data' not in st.session_state:
 def upload_to_sheets(df, sheet_id=None, sheet_name="Sheet1"):
     try:
         if not sheet_id:
-            # Create new Sheet if no ID provided
+            # Create new Sheet
             new_sheet = {'properties': {'title': 'Uploaded Report'}}
             sheet_id = sheets_service.spreadsheets().create(body=new_sheet).execute()['spreadsheetId']
             st.info(f"Created new Sheet ID: {sheet_id}")
@@ -88,6 +88,13 @@ def upload_to_sheets(df, sheet_id=None, sheet_name="Sheet1"):
         return sheet_id
     except HttpError as e:
         st.error(f"Upload Error: {e} - Check permissions or Sheet ID.")
+
+# Your to_excel function (for download)
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    return output.getvalue()
 
 if step == "1. 做卷有效資料":
     st.header("上傳報表 (JJCustomer Report)")
@@ -193,11 +200,6 @@ if step == "1. 做卷有效資料":
         st.subheader("重複資料")
         st.dataframe(df_duplicates)
         # Download buttons
-        def to_excel(df):
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False)
-            return output.getvalue()
         st.download_button(
             label="下載有效資料 Excel",
             data=to_excel(df_valid),
@@ -224,7 +226,13 @@ elif step == "2. 出卷老師資料":
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
         # ... (your existing code for generating result DF)
-        # Upload to Google Sheets button
+        # Download and Upload buttons
+        st.download_button(
+            label="下載出卷老師統計表 Excel",
+            data=to_excel(result),
+            file_name="teacher_assignment_summary.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
         if st.button("Upload Teacher Summary to Google Sheets"):
             uploaded_id = upload_to_sheets(result, upload_sheet_id)
@@ -236,7 +244,13 @@ elif step == "3. 分校做卷情況":
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
         # ... (your existing code for generating result DF)
-        # Upload to Google Sheets button
+        # Download and Upload buttons
+        st.download_button(
+            label="下載分校做卷情況統計表 Excel",
+            data=to_excel(result),
+            file_name="branch_assignment_summary.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
         if st.button("Upload Branch Summary to Google Sheets"):
             uploaded_id = upload_to_sheets(result, upload_sheet_id)
@@ -244,21 +258,3 @@ elif step == "3. 分校做卷情況":
 else:
     st.header("其他功能")
     st.info("此步驟尚未實作，請稍候。")
-
-# Add this function at the top or bottom (for uploading DF to Sheets)
-def upload_to_sheets(df, sheet_id=None, sheet_name="Sheet1"):
-    try:
-        if not sheet_id:
-            # Create new Sheet
-            new_sheet = {'properties': {'title': 'Uploaded Report'}}
-            sheet_id = sheets_service.spreadsheets().create(body=new_sheet).execute()['spreadsheetId']
-            st.info(f"Created new Sheet ID: {sheet_id}")
-        # Convert DF to values list
-        values = [df.columns.tolist()] + df.values.tolist()
-        body = {"values": values}
-        # Clear and update range
-        sheets_service.spreadsheets().values().clear(spreadsheetId=sheet_id, range=sheet_name).execute()
-        sheets_service.spreadsheets().values().update(spreadsheetId=sheet_id, range=sheet_name, valueInputOption="RAW", body=body).execute()
-        return sheet_id
-    except HttpError as e:
-        st.error(f"Upload Error: {e} - Check permissions or Sheet ID.")
