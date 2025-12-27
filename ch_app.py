@@ -54,25 +54,25 @@ def to_excel(df):
         df.to_excel(writer, index=False)
     return output.getvalue()
 
-def upload_to_sheets(df, sheet_id=None, sheet_name="Sheet1"):
+def upload_to_sheets(df, sheet_id, sheet_name="Sheet1"):
     try:
-        if not sheet_id:
-            # Create new Sheet
-            new_sheet = {'properties': {'title': 'Uploaded Report'}}
-            sheet_id = sheets_service.spreadsheets().create(body=new_sheet).execute()['spreadsheetId']
-            st.info(f"Created new Sheet ID: {sheet_id}")
         # Convert DF to values list
         values = [df.columns.tolist()] + df.values.tolist()
         body = {"values": values}
         # Clear and update range
         sheets_service.spreadsheets().values().clear(spreadsheetId=sheet_id, range=sheet_name).execute()
-        sheets_service.spreadsheets().values().update(spreadsheetId=sheet_id, range=sheet_name, valueInputOption="RAW", body=body).execute()
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=sheet_name,
+            valueInputOption="RAW",
+            body=body
+        ).execute()
         return sheet_id
     except HttpError as e:
         if "storageQuotaExceeded" in str(e):
             st.error("Google Drive 空間已滿，請清理空間或升級方案。")
         else:
-            st.error(f"Upload Error: {e} - Check permissions or Sheet ID.")
+            st.error(f"Upload Error: {e} - Check permissions, Sheet ID, or Sheet Name.")
 
 # --- Step 1: 做卷有效資料 ---
 if step == "1. 做卷有效資料":
@@ -251,10 +251,11 @@ elif step == "2. 出卷老師資料":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        # Google Sheets upload
-        upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
+        # --- Always use your fixed Sheet ID and Sheet Name ---
+        fixed_sheet_id = "1jbFLlnlFxDh_gnn4XVhKSJtrI7Ic-tVW4S7LAH1fhgk"
+        sheet_name = st.text_input("Sheet Name (default: Sheet1)", value="Sheet1")
         if st.button("Upload Teacher Summary to Google Sheets"):
-            uploaded_id = upload_to_sheets(result, upload_sheet_id)
+            uploaded_id = upload_to_sheets(result, fixed_sheet_id, sheet_name)
             st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
 
 # --- Step 3: 分校做卷情況 ---
@@ -318,10 +319,11 @@ elif step == "3. 分校做卷情況":
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-            # Google Sheets upload
-            upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
+            # --- Always use your fixed Sheet ID and Sheet Name ---
+            fixed_sheet_id = "1jbFLlnlFxDh_gnn4XVhKSJtrI7Ic-tVW4S7LAH1fhgk"
+            sheet_name = st.text_input("Sheet Name (default: Sheet1)", value="Sheet1", key="branch_sheet_name")
             if st.button("Upload Branch Summary to Google Sheets"):
-                uploaded_id = upload_to_sheets(result, upload_sheet_id)
+                uploaded_id = upload_to_sheets(result, fixed_sheet_id, sheet_name)
                 st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
 
 else:
