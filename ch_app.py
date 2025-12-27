@@ -1,3 +1,9 @@
+import json  # Add this
+
+credentials = service_account.Credentials.from_service_account_info(
+    json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"]),  # Add json.loads
+    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+)
 import streamlit as st
 import pandas as pd
 from io import BytesIO
