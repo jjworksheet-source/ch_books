@@ -1,9 +1,6 @@
 streamlit
 pandas
-xlrd>=2.0.1
-gspread
-oauth2client
 openpyxl
 google-api-python-client
 google-auth
-google-auth-oauthlib
+google-auth-oauthlib  # Optional, but good for future OAuth
