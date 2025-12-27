@@ -1,12 +1,22 @@
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError  # For API error handling
+from googleapiclient.errors import HttpError
 import pandas as pd
 from io import BytesIO
 
 st.set_page_config(page_title="Jolly Jupiter IT Department", layout="wide")
 st.title("中文組做卷管理系統v2")
+
+# Load credentials (assuming nested secrets format)
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["GOOGLE_SERVICE_ACCOUNT"],
+    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+)
+
+# Connect to APIs
+sheets_service = build("sheets", "v4", credentials=credentials)
+drive_service = build("drive", "v3", credentials=credentials)
 
 # Sidebar with step-by-step templates
 st.sidebar.title("操作步驟")
@@ -20,20 +30,10 @@ step = st.sidebar.radio(
     ]
 )
 
-# Load credentials once (at top for all steps)
-credentials = service_account.Credentials.from_service_account_info(
-    st.secrets["GOOGLE_SERVICE_ACCOUNT"],
-    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-)
-
-# Connect to APIs
-sheets_service = build("sheets", "v4", credentials=credentials)
-drive_service = build("drive", "v3", credentials=credentials)
-
-# Test API connection (runs in every step for verification)
+# Google API Test section (keep for verification)
 st.subheader("Google API Test")
-sheet_id = st.text_input("Google Sheet ID", "1jbFLlnlFxDh_gnn4XVhKSJtrI7Ic-tVW4S7LAH1fhgk")  # Extracted ID from your URL
-range_name = st.text_input("Range", "出卷老師資料!A1:M100")  # Your range
+sheet_id = st.text_input("Google Sheet ID", "1jbFLlnlFxDh_gnn4XVhKSJtrI7Ic-tVW4S7LAH1fhgk")
+range_name = st.text_input("Range", "出卷老師資料!A1:M100")
 if st.button("Test Fetch Data"):
     try:
         result = sheets_service.spreadsheets().values().get(spreadsheetId=sheet_id, range=range_name).execute()
@@ -42,7 +42,7 @@ if st.button("Test Fetch Data"):
     except HttpError as e:
         st.error(f"API Error: {e} - Check sharing/permissions or ID/range.")
 
-# Optional: Generate and share report button (can be used in any step)
+# Optional: Generate and share report button
 if st.button("Generate Personal Report"):
     try:
         new_file = {'name': 'Personal_Report.xlsx', 'mimeType': 'application/vnd.google-apps.spreadsheet'}
@@ -55,7 +55,7 @@ if st.button("Generate Personal Report"):
     except HttpError as e:
         st.error(f"Error: {e}")
 
-# cb/kt/mc list (unchanged)
+# cb/kt/mc list
 cb_list = [
     "P1女拔_", "P1男拔_", "P1男拔_1小時", "P5女拔_", "P5男拔_", "P5男拔_1小時", "P6女拔_", "P6男拔_", "P6男拔_1小時"
 ]
@@ -70,6 +70,24 @@ all_juan_list = cb_list + kt_list + mc_list
 # 用於全局暫存有效資料
 if 'valid_data' not in st.session_state:
     st.session_state['valid_data'] = None
+
+# Function to upload DF to Google Sheets (new or existing)
+def upload_to_sheets(df, sheet_id=None, sheet_name="Sheet1"):
+    try:
+        if not sheet_id:
+            # Create new Sheet if no ID provided
+            new_sheet = {'properties': {'title': 'Uploaded Report'}}
+            sheet_id = sheets_service.spreadsheets().create(body=new_sheet).execute()['spreadsheetId']
+            st.info(f"Created new Sheet ID: {sheet_id}")
+        # Convert DF to values list
+        values = [df.columns.tolist()] + df.values.tolist()
+        body = {"values": values}
+        # Clear and update range
+        sheets_service.spreadsheets().values().clear(spreadsheetId=sheet_id, range=sheet_name).execute()
+        sheets_service.spreadsheets().values().update(spreadsheetId=sheet_id, range=sheet_name, valueInputOption="RAW", body=body).execute()
+        return sheet_id
+    except HttpError as e:
+        st.error(f"Upload Error: {e} - Check permissions or Sheet ID.")
 
 if step == "1. 做卷有效資料":
     st.header("上傳報表 (JJCustomer Report)")
@@ -192,6 +210,11 @@ if step == "1. 做卷有效資料":
             file_name="duplicate_data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+        # Upload to Google Sheets button
+        upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
+        if st.button("Upload Valid Data to Google Sheets"):
+            uploaded_id = upload_to_sheets(df_valid, upload_sheet_id)
+            st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
         # Save valid_data to session_state for step 2
         st.session_state['valid_data'] = df_valid
 elif step == "2. 出卷老師資料":
@@ -200,132 +223,42 @@ elif step == "2. 出卷老師資料":
     if df_valid is None:
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
-        # 只統計三個 list 的年級_卷
-        juan_types = [j for j in cb_list + kt_list + mc_list if j in df_valid["年級_卷"].unique()]
-        rows = []
-        for juan in juan_types:
-            price = 25 if "1小時" in juan else 32
-            cb_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "cb")].shape[0]
-            kt_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "kt")].shape[0]
-            mc_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid["出卷老師"] == "mc")].shape[0]
-            cb_commission = cb_count * price
-            kt_commission = kt_count * price
-            mc_commission = mc_count * price
-            row = {
-                "年級+卷": juan,
-                "單價": price,
-                "cb": cb_count,
-                "cb 佣金": cb_commission,
-                "kt": kt_count,
-                "kt 佣金": kt_commission,
-                "mc": mc_count,
-                "mc 佣金": mc_commission,
-                "總和": cb_count + kt_count + mc_count,
-                "佣金總和": cb_commission + kt_commission + mc_commission
-            }
-            rows.append(row)
-        result = pd.DataFrame(rows)
-        # 加總列
-        total_row = {
-            "年級+卷": "總和",
-            "單價": "-",
-            "cb": result["cb"].sum(),
-            "cb 佣金": result["cb 佣金"].sum(),
-            "kt": result["kt"].sum(),
-            "kt 佣金": result["kt 佣金"].sum(),
-            "mc": result["mc"].sum(),
-            "mc 佣金": result["mc 佣金"].sum(),
-            "總和": result["總和"].sum(),
-            "佣金總和": result["佣金總和"].sum()
-        }
-        result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
-        # 儲存總金額到 session_state
-        st.session_state['step2_total'] = total_row["佣金總和"]
-        # 顯示
-        st.subheader("出卷老師的做卷人數及佣金統計表")
-        st.dataframe(result)
-        # 下載
-        def to_excel(df):
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False)
-            return output.getvalue()
-        st.download_button(
-            label="下載出卷老師統計表 Excel",
-            data=to_excel(result),
-            file_name="teacher_assignment_summary.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # ... (your existing code for generating result DF)
+        # Upload to Google Sheets button
+        upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
+        if st.button("Upload Teacher Summary to Google Sheets"):
+            uploaded_id = upload_to_sheets(result, upload_sheet_id)
+            st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
 elif step == "3. 分校做卷情況":
     st.header("分校做卷情況")
     df_valid = st.session_state.get('valid_data', None)
     if df_valid is None:
         st.warning("請先在步驟一上傳並產生有效資料。")
     else:
-        # 分校清單
-        branch_list = ["IRM", "KLN", "NFC", "NPC", "PEC", "SMC", "TKO", "WCC", "WNC"]
-        # 檢查分校欄位
-        branch_col = [col for col in df_valid.columns if "分校" in str(col)]
-        if not branch_col:
-            st.error("找不到分校欄位，請檢查檔案格式。")
-        else:
-            branch_col = branch_col[0]
-            # 只統計三個 list 的年級_卷
-            juan_types = [j for j in cb_list + kt_list + mc_list if j in df_valid["年級_卷"].unique()]
-            rows = []
-            for juan in juan_types:
-                price = 25 if "1小時" in juan else 32
-                row = {"年級+卷": juan, "單價": price}
-                total_students = 0
-                for branch in branch_list:
-                    s_count = df_valid[(df_valid["年級_卷"] == juan) & (df_valid[branch_col] == branch)].shape[0]
-                    row[f"{branch}_S"] = s_count
-                    row[f"{branch}_P"] = s_count * price
-                    total_students += s_count
-                row["總和"] = total_students
-                row["總和_P"] = total_students * price
-                rows.append(row)
-            result = pd.DataFrame(rows)
-            # 加總列
-            total_row = {"年級+卷": "總和", "單價": "-"}
-            for branch in branch_list:
-                total_row[f"{branch}_S"] = result[f"{branch}_S"].sum()
-                total_row[f"{branch}_P"] = result[f"{branch}_P"].sum()
-            total_row["總和"] = result["總和"].sum()
-            total_row["總和_P"] = result["總和_P"].sum()
-            result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
-            # 指定欄位順序
-            columns = ["年級+卷", "單價"]
-            for branch in branch_list:
-                columns += [f"{branch}_S", f"{branch}_P"]
-            columns += ["總和", "總和_P"]
-            result = result[columns]
-            # 取得 step2 總金額
-            step2_total = st.session_state.get('step2_total', None)
-            step3_total = total_row["總和_P"]
-            # 顯示
-            st.subheader("分校做卷情況統計表")
-            st.dataframe(result)
-            # 自動比對總金額
-            if step2_total is not None:
-                if step2_total == step3_total:
-                    st.success(f"總金額一致：{step2_total} 元")
-                else:
-                    st.error(f"總金額不一致！Step 2：{step2_total} 元，Step 3：{step3_total} 元，請檢查資料！")
-            else:
-                st.info("尚未產生 Step 2 總金額，請先執行 Step 2。")
-            # 下載
-            def to_excel(df):
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df.to_excel(writer, index=False)
-                return output.getvalue()
-            st.download_button(
-                label="下載分校做卷情況統計表 Excel",
-                data=to_excel(result),
-                file_name="branch_assignment_summary.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        # ... (your existing code for generating result DF)
+        # Upload to Google Sheets button
+        upload_sheet_id = st.text_input("Upload to Sheet ID (leave blank for new Sheet)", "")
+        if st.button("Upload Branch Summary to Google Sheets"):
+            uploaded_id = upload_to_sheets(result, upload_sheet_id)
+            st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
 else:
     st.header("其他功能")
     st.info("此步驟尚未實作，請稍候。")
+
+# Add this function at the top or bottom (for uploading DF to Sheets)
+def upload_to_sheets(df, sheet_id=None, sheet_name="Sheet1"):
+    try:
+        if not sheet_id:
+            # Create new Sheet
+            new_sheet = {'properties': {'title': 'Uploaded Report'}}
+            sheet_id = sheets_service.spreadsheets().create(body=new_sheet).execute()['spreadsheetId']
+            st.info(f"Created new Sheet ID: {sheet_id}")
+        # Convert DF to values list
+        values = [df.columns.tolist()] + df.values.tolist()
+        body = {"values": values}
+        # Clear and update range
+        sheets_service.spreadsheets().values().clear(spreadsheetId=sheet_id, range=sheet_name).execute()
+        sheets_service.spreadsheets().values().update(spreadsheetId=sheet_id, range=sheet_name, valueInputOption="RAW", body=body).execute()
+        return sheet_id
+    except HttpError as e:
+        st.error(f"Upload Error: {e} - Check permissions or Sheet ID.")
