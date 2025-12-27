@@ -1,18 +1,15 @@
-import json  # Add this
-from google.oauth2 import service_account
-
-credentials = service_account.Credentials.from_service_account_info(
-    json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"]),  # Add json.loads
-    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-)
 import streamlit as st
+import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 import pandas as pd
 from io import BytesIO
 
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-import streamlit as st
-from google.oauth2 import service_account
+# Load the key from secrets
+credentials = service_account.Credentials.from_service_account_info(
+    json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT"]),
+    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+)
 
 # Load the key from secrets
 credentials = service_account.Credentials.from_service_account_info(
