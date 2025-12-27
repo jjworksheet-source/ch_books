@@ -251,12 +251,12 @@ elif step == "2. 出卷老師資料":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        # --- Always use your fixed Sheet ID and Sheet Name ---
+        # --- Always use your fixed Sheet ID and allow custom tab name ---
         fixed_sheet_id = "1jbFLlnlFxDh_gnn4XVhKSJtrI7Ic-tVW4S7LAH1fhgk"
-        sheet_name = st.text_input("Sheet Name (default: Sheet1)", value="Sheet1")
+        sheet_name = st.text_input("Google Sheet 分頁名稱 (Tab Name)", value="出卷老師資料", key="teacher_tab")
         if st.button("Upload Teacher Summary to Google Sheets"):
             uploaded_id = upload_to_sheets(result, fixed_sheet_id, sheet_name)
-            st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
+            st.success(f"已上傳到 Google Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
 
 # --- Step 3: 分校做卷情況 ---
 elif step == "3. 分校做卷情況":
@@ -319,12 +319,12 @@ elif step == "3. 分校做卷情況":
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-            # --- Always use your fixed Sheet ID and Sheet Name ---
+            # --- Always use your fixed Sheet ID and allow custom tab name ---
             fixed_sheet_id = "1jbFLlnlFxDh_gnn4XVhKSJtrI7Ic-tVW4S7LAH1fhgk"
-            sheet_name = st.text_input("Sheet Name (default: Sheet1)", value="Sheet1", key="branch_sheet_name")
+            sheet_name = st.text_input("Google Sheet 分頁名稱 (Tab Name)", value="分校做卷情況", key="branch_tab")
             if st.button("Upload Branch Summary to Google Sheets"):
                 uploaded_id = upload_to_sheets(result, fixed_sheet_id, sheet_name)
-                st.success(f"Uploaded to Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
+                st.success(f"已上傳到 Google Sheet: https://docs.google.com/spreadsheets/d/{uploaded_id}")
 
 else:
     st.header("其他功能")
